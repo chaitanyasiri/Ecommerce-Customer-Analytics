@@ -1,10 +1,10 @@
 -- ============================================================
 -- E-COMMERCE CUSTOMER ANALYTICS
--- SQL / MySQL ANALYSIS
+-- SQL / MySQL
 -- ============================================================
 
--- Database
 CREATE DATABASE IF NOT EXISTS ecommerce_analytics;
+
 USE ecommerce_analytics;
 
 
@@ -12,370 +12,566 @@ USE ecommerce_analytics;
 -- 1. DATASET OVERVIEW
 -- ============================================================
 
-SELECT COUNT(*) AS total_records
-FROM ecommerce;
-
-
--- Check distinct customers and orders
 SELECT
-    COUNT(DISTINCT customer_id) AS total_customers,
-    COUNT(DISTINCT order_id) AS total_orders
+    COUNT(*) AS total_records,
+    COUNT(DISTINCT Order_ID) AS total_orders,
+    COUNT(DISTINCT Customer_id) AS total_customers
 FROM ecommerce;
 
 
 -- ============================================================
--- 2. DATA QUALITY CHECKS
+-- 2. DATA QUALITY CHECK
 -- ============================================================
 
--- Check NULL values
 SELECT
-    SUM(customer_id IS NULL) AS missing_customer_id,
-    SUM(order_id IS NULL) AS missing_order_id,
-    SUM(revenue_inr IS NULL) AS missing_revenue,
-    SUM(order_date IS NULL) AS missing_order_date
+    SUM(Order_ID IS NULL) AS missing_order_id,
+    SUM(Order_date IS NULL) AS missing_order_date,
+    SUM(Customer_id IS NULL) AS missing_customer_id,
+    SUM(Order_total_INR IS NULL) AS missing_order_total,
+    SUM(Product_category IS NULL) AS missing_product_category
 FROM ecommerce;
 
 
--- Check duplicate Order IDs
+-- ============================================================
+-- 3. DUPLICATE CHECK
+-- ============================================================
+
 SELECT
-    order_id,
+    Order_ID,
     COUNT(*) AS duplicate_count
 FROM ecommerce
-GROUP BY order_id
+GROUP BY Order_ID
 HAVING COUNT(*) > 1;
 
 
 -- ============================================================
--- 3. BUSINESS KPIs
+-- 4. CORE BUSINESS KPIs
 -- ============================================================
 
 SELECT
-    COUNT(DISTINCT order_id) AS total_orders,
-    COUNT(DISTINCT customer_id) AS total_customers,
-    ROUND(SUM(revenue_inr), 2) AS total_revenue,
+    COUNT(DISTINCT Order_ID) AS total_orders,
+
+    COUNT(DISTINCT Customer_id) AS total_customers,
+
     ROUND(
-        SUM(revenue_inr) / COUNT(DISTINCT order_id),
+        SUM(Order_total_INR),
+        2
+    ) AS total_revenue,
+
+    SUM(Quantity) AS total_quantity,
+
+    ROUND(
+        SUM(Order_total_INR)
+        / COUNT(DISTINCT Order_ID),
         2
     ) AS average_order_value
+
 FROM ecommerce;
 
 
 -- ============================================================
--- 4. REVENUE BY CUSTOMER SEGMENT
+-- 5. CUSTOMER SEGMENT ANALYSIS
 -- ============================================================
 
 SELECT
-    customer_segment,
-    COUNT(DISTINCT customer_id) AS customers,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY customer_segment
-ORDER BY revenue DESC;
+    Customer_segment,
 
+    COUNT(DISTINCT Customer_id) AS customers,
 
--- ============================================================
--- 5. REVENUE BY PRODUCT CATEGORY
--- ============================================================
+    COUNT(DISTINCT Order_ID) AS orders,
 
-SELECT
-    product_category,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY product_category
-ORDER BY revenue DESC;
-
-
--- ============================================================
--- 6. REGIONAL PERFORMANCE
--- ============================================================
-
-SELECT
-    region,
-    COUNT(DISTINCT customer_id) AS customers,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY region
-ORDER BY revenue DESC;
-
-
--- ============================================================
--- 7. SALES CHANNEL PERFORMANCE
--- ============================================================
-
-SELECT
-    sales_channel,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue,
     ROUND(
-        SUM(revenue_inr) /
-        COUNT(DISTINCT order_id),
+        SUM(Order_total_INR),
         2
-    ) AS average_order_value
+    ) AS revenue,
+
+    SUM(Quantity) AS quantity
+
 FROM ecommerce
-GROUP BY sales_channel
+
+GROUP BY Customer_segment
+
 ORDER BY revenue DESC;
 
 
 -- ============================================================
--- 8. ORDER STATUS ANALYSIS
--- ============================================================
-
-SELECT
-    order_status,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY order_status
-ORDER BY orders DESC;
-
-
--- ============================================================
--- 9. NEW VS RETURNING CUSTOMERS
+-- 6. NEW VS RETURNING CUSTOMERS
 -- ============================================================
 
 WITH customer_orders AS (
+
     SELECT
-        customer_id,
-        COUNT(DISTINCT order_id) AS order_count
+        Customer_id,
+        COUNT(DISTINCT Order_ID) AS order_count
+
     FROM ecommerce
-    GROUP BY customer_id
+
+    GROUP BY Customer_id
 )
 
 SELECT
+
     CASE
-        WHEN order_count = 1 THEN 'New Customer'
-        WHEN order_count > 1 THEN 'Returning Customer'
+        WHEN order_count = 1
+            THEN 'New Customer'
+
+        WHEN order_count > 1
+            THEN 'Returning Customer'
     END AS customer_type,
+
     COUNT(*) AS customers
+
 FROM customer_orders
+
 GROUP BY
     CASE
-        WHEN order_count = 1 THEN 'New Customer'
-        WHEN order_count > 1 THEN 'Returning Customer'
+        WHEN order_count = 1
+            THEN 'New Customer'
+
+        WHEN order_count > 1
+            THEN 'Returning Customer'
     END
+
 ORDER BY customers DESC;
 
 
 -- ============================================================
--- 10. TOP 10 CUSTOMERS BY REVENUE
+-- 7. PRODUCT CATEGORY ANALYSIS
 -- ============================================================
 
 SELECT
-    customer_id,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS total_revenue
+    Product_category,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    SUM(Quantity) AS quantity,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
 FROM ecommerce
-GROUP BY customer_id
-ORDER BY total_revenue DESC
+
+GROUP BY Product_category
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 8. TOP 10 PRODUCTS
+-- ============================================================
+
+SELECT
+    Product_name,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    SUM(Quantity) AS quantity,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Product_name
+
+ORDER BY revenue DESC
+
 LIMIT 10;
 
 
 -- ============================================================
--- 11. CUSTOMER REVENUE RANKING
+-- 9. REGIONAL PERFORMANCE
 -- ============================================================
-
-WITH customer_revenue AS (
-    SELECT
-        customer_id,
-        SUM(revenue_inr) AS total_revenue
-    FROM ecommerce
-    GROUP BY customer_id
-)
 
 SELECT
-    customer_id,
-    ROUND(total_revenue, 2) AS total_revenue,
-    DENSE_RANK() OVER (
-        ORDER BY total_revenue DESC
-    ) AS revenue_rank
-FROM customer_revenue
-ORDER BY revenue_rank;
+    Region,
 
+    COUNT(DISTINCT Customer_id) AS customers,
 
--- ============================================================
--- 12. CUSTOMER VALUE SEGMENTATION
--- ============================================================
+    COUNT(DISTINCT Order_ID) AS orders,
 
-WITH customer_revenue AS (
-    SELECT
-        customer_id,
-        SUM(revenue_inr) AS total_revenue
-    FROM ecommerce
-    GROUP BY customer_id
-)
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
 
-SELECT
-    CASE
-        WHEN total_revenue >= 100000 THEN 'High Value Customer'
-        WHEN total_revenue >= 50000 THEN 'Medium Value Customer'
-        ELSE 'Low Value Customer'
-    END AS customer_value_segment,
-    COUNT(*) AS customers,
-    ROUND(SUM(total_revenue), 2) AS revenue
-FROM customer_revenue
-GROUP BY
-    CASE
-        WHEN total_revenue >= 100000 THEN 'High Value Customer'
-        WHEN total_revenue >= 50000 THEN 'Medium Value Customer'
-        ELSE 'Low Value Customer'
-    END
+FROM ecommerce
+
+GROUP BY Region
+
 ORDER BY revenue DESC;
 
 
 -- ============================================================
--- 13. MONTHLY REVENUE TREND
+-- 10. SALES CHANNEL ANALYSIS
 -- ============================================================
 
 SELECT
-    YEAR(order_date) AS year,
-    MONTH(order_date) AS month,
-    DATE_FORMAT(order_date, '%Y-%m') AS month_name,
-    ROUND(SUM(revenue_inr), 2) AS monthly_revenue
+    Sales_channel,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    SUM(Quantity) AS quantity,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
 FROM ecommerce
+
+GROUP BY Sales_channel
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 11. DEVICE TYPE ANALYSIS
+-- ============================================================
+
+SELECT
+    Device_type,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Device_type
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 12. PAYMENT METHOD ANALYSIS
+-- ============================================================
+
+SELECT
+    Payment_method,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Payment_method
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 13. ORDER STATUS ANALYSIS
+-- ============================================================
+
+SELECT
+    Order_status,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Order_status
+
+ORDER BY orders DESC;
+
+
+-- ============================================================
+-- 14. DELIVERY PERFORMANCE
+-- ============================================================
+
+SELECT
+    Order_status,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        AVG(Delivery_days),
+        2
+    ) AS average_delivery_days
+
+FROM ecommerce
+
+GROUP BY Order_status
+
+ORDER BY average_delivery_days;
+
+
+-- ============================================================
+-- 15. MONTHLY REVENUE
+-- ============================================================
+
+SELECT
+    YEAR(Order_date) AS year,
+
+    MONTH(Order_date) AS month,
+
+    DATE_FORMAT(
+        Order_date,
+        '%Y-%m'
+    ) AS month_name,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS monthly_revenue
+
+FROM ecommerce
+
 GROUP BY
-    YEAR(order_date),
-    MONTH(order_date),
-    DATE_FORMAT(order_date, '%Y-%m')
+    YEAR(Order_date),
+    MONTH(Order_date),
+    DATE_FORMAT(
+        Order_date,
+        '%Y-%m'
+    )
+
 ORDER BY year, month;
 
 
 -- ============================================================
--- 14. MONTH-OVER-MONTH REVENUE CHANGE
+-- 16. MONTH-OVER-MONTH REVENUE
 -- ============================================================
 
 WITH monthly_revenue AS (
+
     SELECT
-        DATE_FORMAT(order_date, '%Y-%m') AS month,
-        SUM(revenue_inr) AS revenue
+        DATE_FORMAT(
+            Order_date,
+            '%Y-%m'
+        ) AS month,
+
+        SUM(Order_total_INR) AS revenue
+
     FROM ecommerce
-    GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+
+    GROUP BY
+        DATE_FORMAT(
+            Order_date,
+            '%Y-%m'
+        )
+),
+
+monthly_analysis AS (
+
+    SELECT
+        month,
+        revenue,
+
+        LAG(revenue)
+        OVER (
+            ORDER BY month
+        ) AS previous_month_revenue
+
+    FROM monthly_revenue
 )
 
 SELECT
     month,
-    ROUND(revenue, 2) AS revenue,
+
     ROUND(
-        LAG(revenue) OVER (ORDER BY month),
+        revenue,
+        2
+    ) AS revenue,
+
+    ROUND(
+        previous_month_revenue,
         2
     ) AS previous_month_revenue,
+
     ROUND(
         (
-            revenue -
-            LAG(revenue) OVER (ORDER BY month)
+            revenue - previous_month_revenue
         )
-        /
-        NULLIF(
-            LAG(revenue) OVER (ORDER BY month),
+        / NULLIF(
+            previous_month_revenue,
             0
         ) * 100,
         2
     ) AS mom_growth_percentage
-FROM monthly_revenue
+
+FROM monthly_analysis
+
 ORDER BY month;
 
 
 -- ============================================================
--- 15. TOP PRODUCT CATEGORIES BY REVENUE
+-- 17. TOP CUSTOMERS BY REVENUE
 -- ============================================================
-
-WITH category_revenue AS (
-    SELECT
-        product_category,
-        SUM(revenue_inr) AS revenue
-    FROM ecommerce
-    GROUP BY product_category
-)
 
 SELECT
-    product_category,
-    ROUND(revenue, 2) AS revenue,
-    DENSE_RANK() OVER (
-        ORDER BY revenue DESC
-    ) AS category_rank
-FROM category_revenue
-ORDER BY category_rank;
+    Customer_id,
 
+    MAX(Customer_name) AS Customer_name,
 
--- ============================================================
--- 16. REGION REVENUE CONTRIBUTION
--- ============================================================
+    COUNT(DISTINCT Order_ID) AS orders,
 
-WITH region_revenue AS (
-    SELECT
-        region,
-        SUM(revenue_inr) AS revenue
-    FROM ecommerce
-    GROUP BY region
-)
-
-SELECT
-    region,
-    ROUND(revenue, 2) AS revenue,
     ROUND(
-        revenue /
-        SUM(revenue) OVER () * 100,
+        SUM(Order_total_INR),
         2
-    ) AS revenue_contribution_percentage
-FROM region_revenue
-ORDER BY revenue DESC;
+    ) AS total_revenue
 
-
--- ============================================================
--- 17. HIGH-VALUE CUSTOMERS
--- ============================================================
-
-SELECT
-    customer_id,
-    COUNT(DISTINCT order_id) AS total_orders,
-    ROUND(SUM(revenue_inr), 2) AS total_revenue
 FROM ecommerce
-GROUP BY customer_id
-HAVING SUM(revenue_inr) >= 100000
-ORDER BY total_revenue DESC;
+
+GROUP BY Customer_id
+
+ORDER BY total_revenue DESC
+
+LIMIT 10;
 
 
 -- ============================================================
--- 18. CUSTOMERS WITH HIGH PURCHASE FREQUENCY
+-- 18. CUSTOMER REVENUE RANKING
 -- ============================================================
+
+WITH customer_revenue AS (
+
+    SELECT
+        Customer_id,
+
+        MAX(Customer_name) AS Customer_name,
+
+        SUM(Order_total_INR) AS revenue
+
+    FROM ecommerce
+
+    GROUP BY Customer_id
+)
 
 SELECT
-    customer_id,
-    COUNT(DISTINCT order_id) AS order_count,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY customer_id
-HAVING COUNT(DISTINCT order_id) >= 5
-ORDER BY order_count DESC, revenue DESC;
+    Customer_id,
 
+    Customer_name,
 
--- ============================================================
--- 19. PAYMENT METHOD ANALYSIS
--- ============================================================
-
-SELECT
-    payment_method,
-    COUNT(DISTINCT order_id) AS orders,
-    ROUND(SUM(revenue_inr), 2) AS revenue
-FROM ecommerce
-GROUP BY payment_method
-ORDER BY revenue DESC;
-
-
--- ============================================================
--- 20. BUSINESS SUMMARY
--- ============================================================
-
-SELECT
-    'E-Commerce Customer Analytics' AS analysis,
-    COUNT(DISTINCT order_id) AS total_orders,
-    COUNT(DISTINCT customer_id) AS total_customers,
-    ROUND(SUM(revenue_inr), 2) AS total_revenue,
     ROUND(
-        SUM(revenue_inr) /
-        COUNT(DISTINCT order_id),
+        revenue,
+        2
+    ) AS revenue,
+
+    DENSE_RANK()
+    OVER (
+        ORDER BY revenue DESC
+    ) AS revenue_rank
+
+FROM customer_revenue
+
+ORDER BY revenue_rank;
+
+
+-- ============================================================
+-- 19. HIGH-VALUE CUSTOMERS
+-- ============================================================
+
+SELECT
+    Customer_id,
+
+    MAX(Customer_name) AS Customer_name,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Customer_id
+
+HAVING SUM(Order_total_INR) >= 100000
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 20. DISCOUNT ANALYSIS
+-- ============================================================
+
+SELECT
+    Product_category,
+
+    ROUND(
+        AVG(Discount_percent),
+        2
+    ) AS average_discount,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY Product_category
+
+ORDER BY revenue DESC;
+
+
+-- ============================================================
+-- 21. STATE-LEVEL PERFORMANCE
+-- ============================================================
+
+SELECT
+    State,
+
+    COUNT(DISTINCT Customer_id) AS customers,
+
+    COUNT(DISTINCT Order_ID) AS orders,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS revenue
+
+FROM ecommerce
+
+GROUP BY State
+
+ORDER BY revenue DESC
+
+LIMIT 10;
+
+
+-- ============================================================
+-- 22. FINAL BUSINESS SUMMARY
+-- ============================================================
+
+SELECT
+
+    COUNT(DISTINCT Order_ID)
+        AS total_orders,
+
+    COUNT(DISTINCT Customer_id)
+        AS total_customers,
+
+    ROUND(
+        SUM(Order_total_INR),
+        2
+    ) AS total_revenue,
+
+    SUM(Quantity)
+        AS total_quantity,
+
+    ROUND(
+        SUM(Order_total_INR)
+        / COUNT(DISTINCT Order_ID),
         2
     ) AS average_order_value
+
 FROM ecommerce;
